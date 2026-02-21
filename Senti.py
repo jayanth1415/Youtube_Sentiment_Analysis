@@ -135,8 +135,9 @@ def print_sentiment(csv_file: str) -> None:
         overall_sentiment = 'NEUTRAL'
         color = Fore.YELLOW
 
-    # Print the overall sentiment in color
+    # Print the overall sentiment in color pattern
     print('\n'+ Style.BRIGHT+ color + overall_sentiment.upper().center(50, ' ') + Style.RESET_ALL)
+
 
 
 
