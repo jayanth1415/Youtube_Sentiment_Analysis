@@ -1,161 +1,132 @@
 import streamlit as st
 import os
-from Senti import extract_video_id,analyze_sentiment,bar_chart,plot_sentiment
-from YoutubeCommentScrapper import save_video_comments_to_csv,get_channel_info,youtube,get_channel_id,get_video_stats
-
+import pandas as pd
+import plotly.express as px
+from Senti import extract_video_id, analyze_sentiment, bar_chart, plot_sentiment
+from YoutubeCommentScrapper import save_video_comments_to_csv, get_channel_info, youtube, get_channel_id, get_video_stats
 
 
 def delete_non_matching_csv_files(directory_path, video_id):
     for file_name in os.listdir(directory_path):
         if not file_name.endswith('.csv'):
             continue
-        if file_name == f'{video_id}.csv':
+        if file_name == f'{video_id}_analysis.csv':
             continue
         os.remove(os.path.join(directory_path, file_name))
 
 
-st.set_page_config(page_title='Jatin_Agrawal_20BCS6606', page_icon = 'LOGO.png', initial_sidebar_state = 'auto')
-#st.set_page_config(page_title=None, page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
-st.sidebar.title("Sentimental Analsis")
+st.set_page_config(page_title='SentimentAnalysis', page_icon='LOGO.png')
+
+st.sidebar.title("Sentiment Analysis")
 st.sidebar.header("Enter YouTube Link")
 youtube_link = st.sidebar.text_input("Link")
-directory_path = os.getcwd()
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
 
+directory_path = os.getcwd()
 
 if youtube_link:
     video_id = extract_video_id(youtube_link)
     channel_id = get_channel_id(video_id)
+
     if video_id:
-        st.sidebar.write("The video ID is:", video_id)     
+
+        st.sidebar.write("Video ID:", video_id)
+
+        # SAVE CSV
         csv_file = save_video_comments_to_csv(video_id)
-        delete_non_matching_csv_files(directory_path,video_id)
-        st.sidebar.write("Comments saved to CSV!")
-        st.sidebar.download_button(label="Download Comments", data=open(csv_file, 'rb').read(), file_name=os.path.basename(csv_file), mime="text/csv")
-        
-        #using fn
-        channel_info = get_channel_info(youtube,channel_id)
-               
+
+        delete_non_matching_csv_files(directory_path, video_id)
+
+        st.sidebar.success("Comments saved!")
+        st.sidebar.download_button(
+            label="Download Comments",
+            data=open(csv_file, 'rb').read(),
+            file_name=os.path.basename(csv_file),
+            mime="text/csv"
+        )
+
+        # LOAD DATAFRAME
+        df = pd.read_csv(csv_file)
+
+
+        # CHANNEL INFO
+
+
+        channel_info = get_channel_info(youtube, channel_id)
+
         col1, col2 = st.columns(2)
 
         with col1:
-           channel_logo_url = channel_info['channel_logo_url']
-           st.image(channel_logo_url, width=250)
+            st.image(channel_info['channel_logo_url'], width=200)
 
         with col2:
-           channel_title = channel_info['channel_title']
-           st.title(' ')
-           st.text("  YouTube Channel Name  ")
-           #st.markdown('** YouTube Channel Name **')
-           st.title(channel_title)
-           st.title("  ")
-           st.title(" ")
-           st.title(" ")
-           
-        
-        #Using fn
-        
-        
-        
-        st.title(" ")
-        col3, col4 ,col5 = st.columns(3)
-        
-        
-        with col3:
-           video_count=channel_info['video_count']
-           st.header("  Total Videos  ")
-           #st.subheader("Total Videos")
-           st.subheader(video_count)
+            st.title(channel_info['channel_title'])
 
-        with col4:
-           channel_created_date= channel_info['channel_created_date']
-           created_date = channel_created_date[:10]
-           st.header("Channel Created ")
-           st.subheader(created_date)
+        col3, col4, col5 = st.columns(3)
 
-        with col5:
-            
-            st.header(" Subscriber_Count ")
-            st.subheader(channel_info["subscriber_count"])
-            
-        st.title(" ")
+        col3.metric("Total Videos", channel_info['video_count'])
+        col4.metric("Created On", channel_info['channel_created_date'][:10])
+        col5.metric("Subscribers", channel_info["subscriber_count"])
 
-        stats = get_video_stats(video_id)   
-        
-        st.title("Video Information :")
-        col6, col7 ,col8 = st.columns(3)
-        
-        
-        with col6:
-            st.header("  Total Views  ")
-           #st.subheader("Total Videos")
-            st.subheader(stats["viewCount"])
+        stats = get_video_stats(video_id)
 
-        with col7:
-           st.header(" Like Count ")
-           st.subheader(stats["likeCount"])
-           
+        st.subheader("Video Stats")
+        col6, col7, col8 = st.columns(3)
 
-        with col8:
-            
-            st.header(" Comment Count ")
-            st.subheader(stats["commentCount"])
-            
-        st.header(" ")   
-        
-        
-        _, container, _ = st.columns([10, 80, 10])
-        container.video(data=youtube_link)
-      
-            
-        
-            
-            
+        col6.metric("Views", stats["viewCount"])
+        col7.metric("Likes", stats["likeCount"])
+        col8.metric("Comments", stats["commentCount"])
+
+        st.video(youtube_link)
+
+
+        # SENTIMENT
+
+
         results = analyze_sentiment(csv_file)
-        
-        
-        col9, col10 ,col11 = st.columns(3)
-        
-        
-        with col9:
-            st.header("  Positive Comments  ")
-           #st.subheader("Total Videos")
-            st.subheader(results['num_positive'])
 
-        with col10:
-           st.header(" Negative Comments ")
-           st.subheader( results['num_negative'])
-           
+        col9, col10, col11 = st.columns(3)
 
-        with col11:
-            
-            st.header(" Neutral Comments ")
-            st.subheader(results['num_neutral'])
-        
-        
+        col9.metric("Positive", results['num_positive'])
+        col10.metric("Negative", results['num_negative'])
+        col11.metric("Neutral", results['num_neutral'])
+
         bar_chart(csv_file)
-        
         plot_sentiment(csv_file)
-        
-            
-        st.subheader("Channel Description ")   
-        channel_description = channel_info['channel_description']
-        st.write(channel_description)
-        
+
+
+        # FAKE DETECTION SECTION
+
+
+        if "Fake_Detection" in df.columns:
+
+            st.subheader("🚨 Fake Comment Analysis")
+
+            fake_counts = df["Fake_Detection"].value_counts().reset_index()
+            fake_counts.columns = ["Type", "Count"]
+
+            colA, colB, colC = st.columns(3)
+
+            colA.metric("Fake", (df["Fake_Detection"] == "Fake").sum())
+            colB.metric("Real", (df["Fake_Detection"] == "Real").sum())
+            colC.metric("Suspicious", (df["Fake_Detection"] == "Suspicious").sum())
+
+            fig_fake = px.pie(
+                fake_counts,
+                names="Type",
+                values="Count",
+                title="Fake vs Real Distribution",
+                color="Type",
+                color_discrete_map={
+                    "Fake": "red",
+                    "Real": "green",
+                    "Suspicious": "orange"
+                }
+            )
+
+            st.plotly_chart(fig_fake)
+
+        st.subheader("Channel Description")
+        st.write(channel_info['channel_description'])
+
     else:
         st.error("Invalid YouTube link")
-        
-        
-  
-    
-    
-        
-
-
-
