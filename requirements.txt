@@ -4,3 +4,4 @@ plotly
 google-api-python-client
 vaderSentiment
 nltk
+colorama
